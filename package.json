@@ -1,0 +1,17 @@
+{
+  "name": "bot-clipper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BOT-CLIPPER Telegram bot scaffold",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "start": "node src/index.mjs",
+    "healthcheck": "node scripts/healthcheck.mjs",
+    "migrate": "node scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "telegraf": "^4.16.3"
+  }
+}

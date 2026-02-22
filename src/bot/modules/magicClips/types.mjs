@@ -1,0 +1,6 @@
+export const FLOW_STEPS = Object.freeze({
+  ASK_URL: 'ASK_URL',
+  ASK_CLIP_COUNT: 'ASK_CLIP_COUNT',
+  ASK_MAX_DURATION: 'ASK_MAX_DURATION',
+  CONFIRM: 'CONFIRM'
+});
