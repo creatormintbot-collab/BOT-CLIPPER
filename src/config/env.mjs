@@ -16,6 +16,11 @@ function withDefault(name, defaultValue) {
   return value && value.trim() ? value.trim() : defaultValue;
 }
 
+function optional(name) {
+  const value = process.env[name];
+  return value && value.trim() ? value.trim() : '';
+}
+
 function parsePositiveInteger(name, defaultValue) {
   const raw = withDefault(name, String(defaultValue));
   const parsed = Number(raw);
@@ -66,5 +71,7 @@ export const env = Object.freeze({
   WHISPER_MODEL: withDefault('WHISPER_MODEL', 'small'),
   WHISPER_LANGUAGE: withDefault('WHISPER_LANGUAGE', 'id'),
   OUTPUT_WIDTH: parsePositiveInteger('OUTPUT_WIDTH', 720),
-  OUTPUT_HEIGHT: parsePositiveInteger('OUTPUT_HEIGHT', 1280)
+  OUTPUT_HEIGHT: parsePositiveInteger('OUTPUT_HEIGHT', 1280),
+  YTDLP_COOKIES_PATH: optional('YTDLP_COOKIES_PATH'),
+  YTDLP_JS_RUNTIME: optional('YTDLP_JS_RUNTIME')
 });

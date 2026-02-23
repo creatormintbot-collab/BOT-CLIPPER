@@ -8,6 +8,41 @@ function commandError(command, args, code, stderr) {
   return new Error(`Command failed (${code}): ${rendered}${tail ? `\n${tail}` : ''}`);
 }
 
+function isYtDlpCommand(command = '') {
+  return String(command).toLowerCase().includes('yt-dlp');
+}
+
+function hasBotConfirmationError(output = '') {
+  const lowered = String(output).toLowerCase();
+  return (
+    lowered.includes("sign in to confirm you're not a bot") ||
+    lowered.includes("sign in to confirm you’re not a bot")
+  );
+}
+
+function friendlyYtDlpError() {
+  return new Error(
+    'YouTube requires cookies to download from this server. Set YTDLP_COOKIES_PATH in .env and upload cookies to that path.'
+  );
+}
+
+function buildYtDlpCommonArgs({ ytDlpCookiesPath, ytDlpJsRuntime }) {
+  const args = ['--no-playlist'];
+
+  const cookiesPath = String(ytDlpCookiesPath || '').trim();
+  if (cookiesPath) {
+    args.push('--cookies', cookiesPath);
+  }
+
+  const jsRuntimePath = String(ytDlpJsRuntime || '').trim();
+  if (jsRuntimePath) {
+    const runtime = jsRuntimePath.startsWith('node:') ? jsRuntimePath : `node:${jsRuntimePath}`;
+    args.push('--js-runtimes', runtime);
+  }
+
+  return args;
+}
+
 function runCommand(command, args, options = {}) {
   const { cwd, env, logger } = options;
   return new Promise((resolve, reject) => {
@@ -41,6 +76,11 @@ function runCommand(command, args, options = {}) {
       if (code === 0) {
         resolve({ stdout, stderr });
       } else {
+        const combinedOutput = `${stdout}\n${stderr}`;
+        if (isYtDlpCommand(command) && hasBotConfirmationError(combinedOutput)) {
+          reject(friendlyYtDlpError());
+          return;
+        }
         reject(commandError(command, args, code, stderr));
       }
     });
@@ -63,15 +103,29 @@ async function findFirstMatch(dirPath, prefixes) {
   return null;
 }
 
-export async function downloadAudioOnly({ url, workDir, ytDlpBin = 'yt-dlp', logger }) {
+export async function downloadAudioOnly({
+  url,
+  workDir,
+  ytDlpBin = 'yt-dlp',
+  ytDlpCookiesPath = process.env.YTDLP_COOKIES_PATH,
+  ytDlpJsRuntime = process.env.YTDLP_JS_RUNTIME,
+  logger
+}) {
   await fs.mkdir(workDir, { recursive: true });
   const outputTemplate = path.resolve(workDir, 'audio.%(ext)s');
+  const ytDlpArgs = [
+    ...buildYtDlpCommonArgs({
+      ytDlpCookiesPath,
+      ytDlpJsRuntime
+    }),
+    '-f',
+    'bestaudio',
+    '-o',
+    outputTemplate,
+    url
+  ];
 
-  await runCommand(
-    ytDlpBin,
-    ['--no-playlist', '-f', 'bestaudio', '-o', outputTemplate, url],
-    { cwd: workDir, logger }
-  );
+  await runCommand(ytDlpBin, ytDlpArgs, { cwd: workDir, logger });
 
   const downloadedPath = await findFirstMatch(workDir, ['audio.']);
   if (!downloadedPath) {
@@ -115,26 +169,28 @@ export async function downloadSourceVideo({
   url,
   workDir,
   ytDlpBin = 'yt-dlp',
+  ytDlpCookiesPath = process.env.YTDLP_COOKIES_PATH,
+  ytDlpJsRuntime = process.env.YTDLP_JS_RUNTIME,
   ffmpegBin = 'ffmpeg',
   logger
 }) {
   await fs.mkdir(workDir, { recursive: true });
   const outputTemplate = path.resolve(workDir, 'source.%(ext)s');
+  const ytDlpArgs = [
+    ...buildYtDlpCommonArgs({
+      ytDlpCookiesPath,
+      ytDlpJsRuntime
+    }),
+    '-f',
+    'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+    '--merge-output-format',
+    'mp4',
+    '-o',
+    outputTemplate,
+    url
+  ];
 
-  await runCommand(
-    ytDlpBin,
-    [
-      '--no-playlist',
-      '-f',
-      'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-      '--merge-output-format',
-      'mp4',
-      '-o',
-      outputTemplate,
-      url
-    ],
-    { cwd: workDir, logger }
-  );
+  await runCommand(ytDlpBin, ytDlpArgs, { cwd: workDir, logger });
 
   const downloadedPath = await findFirstMatch(workDir, ['source.']);
   if (!downloadedPath) {
