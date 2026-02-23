@@ -5,9 +5,10 @@ function defaultState() {
   return {
     active: false,
     step: null,
-    url: null,
-    clipCount: null,
-    maxDurationSec: null
+    urlOriginal: null,
+    urlNormalized: null,
+    targetLengthSec: null,
+    outputMode: null
   };
 }
 
@@ -23,9 +24,10 @@ export function beginMagicClipsFlow(session) {
   const state = getMagicClipsState(session);
   state.active = true;
   state.step = FLOW_STEPS.ASK_URL;
-  state.url = null;
-  state.clipCount = null;
-  state.maxDurationSec = null;
+  state.urlOriginal = null;
+  state.urlNormalized = null;
+  state.targetLengthSec = null;
+  state.outputMode = null;
   return state;
 }
 

@@ -1,6 +1,5 @@
 import { mainMenuKeyboard } from './buttons.mjs';
-import { messages } from './messages.mjs';
 
 export async function sendStartMenu(ctx) {
-  await ctx.reply(messages.startTitle, mainMenuKeyboard());
+  await ctx.reply('Create a new project\nChoose a tool:', mainMenuKeyboard());
 }

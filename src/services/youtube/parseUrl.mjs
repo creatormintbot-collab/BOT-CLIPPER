@@ -1,20 +1,26 @@
+function cleanHost(hostname = '') {
+  return String(hostname).toLowerCase().replace(/^www\./, '').replace(/^m\./, '');
+}
+
+function isValidVideoId(videoId) {
+  return typeof videoId === 'string' && /^[A-Za-z0-9_-]{6,}$/.test(videoId);
+}
+
 function extractVideoId(urlObject) {
-  const host = urlObject.hostname.toLowerCase();
+  const host = cleanHost(urlObject.hostname);
 
   if (host === 'youtu.be') {
-    return urlObject.pathname.replace(/^\//, '') || null;
+    return urlObject.pathname.split('/').filter(Boolean)[0] || null;
   }
 
-  if (host.includes('youtube.com')) {
-    const fromQuery = urlObject.searchParams.get('v');
-    if (fromQuery) {
-      return fromQuery;
+  if (host === 'youtube.com') {
+    if (urlObject.pathname === '/watch') {
+      return urlObject.searchParams.get('v');
     }
 
     const parts = urlObject.pathname.split('/').filter(Boolean);
-    const watchType = parts[0];
-    if (watchType === 'shorts' || watchType === 'embed') {
-      return parts[1] || null;
+    if ((parts[0] === 'shorts' || parts[0] === 'embed') && parts[1]) {
+      return parts[1];
     }
   }
 
@@ -33,16 +39,24 @@ export function parseYouTubeUrl(rawUrl) {
     return { ok: false, error: 'Invalid URL format.' };
   }
 
-  const host = parsed.hostname.toLowerCase();
-  const isYouTube = host === 'youtu.be' || host.includes('youtube.com');
-
+  const host = cleanHost(parsed.hostname);
+  const isYouTube = host === 'youtube.com' || host === 'youtu.be';
   if (!isYouTube) {
     return { ok: false, error: 'URL must be from YouTube (youtube.com or youtu.be).' };
   }
 
+  const videoId = extractVideoId(parsed);
+  if (!isValidVideoId(videoId)) {
+    return {
+      ok: false,
+      error: 'Could not find a valid YouTube video id. Use youtube.com/watch?v=... or youtu.be/...'
+    };
+  }
+
   return {
     ok: true,
-    normalizedUrl: parsed.toString(),
-    videoId: extractVideoId(parsed)
+    originalUrl: rawUrl.trim(),
+    normalizedUrl: `https://www.youtube.com/watch?v=${videoId}`,
+    videoId
   };
 }

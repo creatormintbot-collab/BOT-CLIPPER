@@ -6,15 +6,17 @@ import {
   moveToStep,
   resetMagicClipsFlow
 } from './flow.mjs';
-import { buildMagicClipsJob, formatJobOutputList, queueMagicClipsJob } from './service.mjs';
-import { validateClipCount, validateMaxDuration, validateYouTubeInput } from './validators.mjs';
+import { buildMagicClipsJob, queueMagicClipsJob } from './service.mjs';
+import { validateOutputMode, validateTargetLength, validateYouTubeInput } from './validators.mjs';
 import {
-  clipCountKeyboard,
+  cancelKeyboard,
   confirmKeyboard,
+  editKeyboard,
   formatSummary,
+  lengthKeyboard,
   magicCallbacks,
   magicClipsUx,
-  maxDurationKeyboard
+  modeKeyboard
 } from './ux.mjs';
 import { MENU_CALLBACKS } from '../../ui/buttons.mjs';
 
@@ -24,47 +26,74 @@ function ensureSession(ctx) {
   return ctx.state.session;
 }
 
+async function sendAskUrl(ctx) {
+  await ctx.reply(magicClipsUx.askUrl, cancelKeyboard());
+}
+
+async function sendAskOutputLength(ctx) {
+  await ctx.reply(magicClipsUx.askOutputLength, lengthKeyboard());
+}
+
+async function sendAskOutputMode(ctx) {
+  await ctx.reply(magicClipsUx.askOutputMode, modeKeyboard());
+}
+
 async function sendConfirmation(ctx, state) {
   await ctx.reply(formatSummary(state), confirmKeyboard());
+}
+
+async function sendEditMenu(ctx, session) {
+  moveToStep(session, FLOW_STEPS.EDIT_MENU);
+  await ctx.reply(magicClipsUx.editPrompt, editKeyboard());
 }
 
 async function handleUrlInput(ctx, state, rawText) {
   const validated = validateYouTubeInput(rawText);
   if (!validated.ok) {
     await ctx.reply(magicClipsUx.invalidUrl);
-    await ctx.reply(magicClipsUx.askUrl);
+    await sendAskUrl(ctx);
     return;
   }
 
-  state.url = validated.value;
-  state.step = FLOW_STEPS.ASK_CLIP_COUNT;
-  await ctx.reply(magicClipsUx.askClipCount, clipCountKeyboard());
+  state.urlOriginal = validated.urlOriginal;
+  state.urlNormalized = validated.value;
+  state.step = FLOW_STEPS.ASK_OUTPUT_LENGTH;
+  await sendAskOutputLength(ctx);
 }
 
-async function handleClipCountInput(ctx, state, rawText) {
-  const validated = validateClipCount(rawText);
+async function handleLengthInput(ctx, state, rawText) {
+  const validated = validateTargetLength(rawText);
   if (!validated.ok) {
-    await ctx.reply(magicClipsUx.invalidClipCount);
-    await ctx.reply(magicClipsUx.askClipCount, clipCountKeyboard());
+    await ctx.reply(magicClipsUx.invalidOutputLength);
+    await sendAskOutputLength(ctx);
     return;
   }
 
-  state.clipCount = validated.value;
-  state.step = FLOW_STEPS.ASK_MAX_DURATION;
-  await ctx.reply(magicClipsUx.askMaxDuration, maxDurationKeyboard());
+  state.targetLengthSec = validated.value;
+  state.step = FLOW_STEPS.ASK_OUTPUT_MODE;
+  await sendAskOutputMode(ctx);
 }
 
-async function handleMaxDurationInput(ctx, state, rawText) {
-  const validated = validateMaxDuration(rawText);
+async function handleModeInput(ctx, state, rawMode) {
+  const validated = validateOutputMode(rawMode);
   if (!validated.ok) {
-    await ctx.reply(magicClipsUx.invalidMaxDuration);
-    await ctx.reply(magicClipsUx.askMaxDuration, maxDurationKeyboard());
+    await ctx.reply(magicClipsUx.invalidOutputMode);
+    await sendAskOutputMode(ctx);
     return;
   }
 
-  state.maxDurationSec = validated.value;
+  state.outputMode = validated.value;
   state.step = FLOW_STEPS.CONFIRM;
   await sendConfirmation(ctx, state);
+}
+
+function canStart(state) {
+  return (
+    state.step === FLOW_STEPS.CONFIRM &&
+    Boolean(state.urlNormalized) &&
+    Number.isInteger(state.targetLengthSec) &&
+    (state.outputMode === 'single' || state.outputMode === 'variants')
+  );
 }
 
 async function runMagicClipsJob(ctx, state, deps) {
@@ -78,18 +107,54 @@ async function runMagicClipsJob(ctx, state, deps) {
 
   const job = buildMagicClipsJob({ userId, chatId, state });
   await queueMagicClipsJob({ job, queue: deps.queue, storage: deps.storage });
+  await ctx.reply(magicClipsUx.accepted);
+}
 
-  let result = null;
-  if (deps.env.QUEUE_DRIVER === 'inmem' && typeof deps.queue.runNext === 'function') {
-    result = await deps.queue.runNext();
-  }
-
-  if (result?.status === 'completed') {
-    await ctx.reply(`${magicClipsUx.completedTitle}\n${formatJobOutputList(result.outputs)}`);
+async function handleBack(ctx, session, state) {
+  if (state.step === FLOW_STEPS.ASK_OUTPUT_LENGTH || state.step === FLOW_STEPS.ASK_OUTPUT_LENGTH_CUSTOM) {
+    moveToStep(session, FLOW_STEPS.ASK_URL);
+    await sendAskUrl(ctx);
     return;
   }
 
-  await ctx.reply(magicClipsUx.queuedFallback);
+  if (state.step === FLOW_STEPS.ASK_OUTPUT_MODE) {
+    moveToStep(session, FLOW_STEPS.ASK_OUTPUT_LENGTH);
+    await sendAskOutputLength(ctx);
+    return;
+  }
+
+  if (state.step === FLOW_STEPS.CONFIRM || state.step === FLOW_STEPS.EDIT_MENU) {
+    moveToStep(session, FLOW_STEPS.ASK_OUTPUT_MODE);
+    await sendAskOutputMode(ctx);
+    return;
+  }
+
+  await sendAskUrl(ctx);
+}
+
+async function handleEditSelection(ctx, session, state, data) {
+  if (data === magicCallbacks.EDIT_URL) {
+    moveToStep(session, FLOW_STEPS.ASK_URL);
+    await sendAskUrl(ctx);
+    return;
+  }
+
+  if (data === magicCallbacks.EDIT_LEN) {
+    moveToStep(session, FLOW_STEPS.ASK_OUTPUT_LENGTH);
+    await sendAskOutputLength(ctx);
+    return;
+  }
+
+  if (data === magicCallbacks.EDIT_MODE) {
+    moveToStep(session, FLOW_STEPS.ASK_OUTPUT_MODE);
+    await sendAskOutputMode(ctx);
+    return;
+  }
+
+  if (data === magicCallbacks.EDIT_BACK) {
+    moveToStep(session, FLOW_STEPS.CONFIRM);
+    await sendConfirmation(ctx, state);
+  }
 }
 
 async function handleMagicAction(ctx, deps) {
@@ -97,8 +162,27 @@ async function handleMagicAction(ctx, deps) {
   const state = getMagicClipsState(session);
   const data = ctx.callbackQuery?.data || '';
 
+  if (data === magicCallbacks.CANCEL) {
+    await ctx.answerCbQuery();
+    resetMagicClipsFlow(session);
+    await ctx.reply(magicClipsUx.cancelled);
+    return;
+  }
+
+  if (!state.active) {
+    await ctx.answerCbQuery();
+    await ctx.reply(magicClipsUx.noActiveFlow);
+    return;
+  }
+
+  if (data === magicCallbacks.BACK) {
+    await ctx.answerCbQuery();
+    await handleBack(ctx, session, state);
+    return;
+  }
+
   if (data === magicCallbacks.START) {
-    if (state.step !== FLOW_STEPS.CONFIRM) {
+    if (!canStart(state)) {
       await ctx.answerCbQuery(magicClipsUx.completePreviousSteps);
       return;
     }
@@ -111,52 +195,48 @@ async function handleMagicAction(ctx, deps) {
 
   if (data === magicCallbacks.EDIT) {
     await ctx.answerCbQuery();
-    moveToStep(session, FLOW_STEPS.ASK_URL);
-    state.url = null;
-    state.clipCount = null;
-    state.maxDurationSec = null;
-    await ctx.reply(magicClipsUx.editPrompt);
+    await sendEditMenu(ctx, session);
     return;
   }
 
-  if (data === magicCallbacks.CANCEL) {
+  if (
+    data === magicCallbacks.EDIT_URL ||
+    data === magicCallbacks.EDIT_LEN ||
+    data === magicCallbacks.EDIT_MODE ||
+    data === magicCallbacks.EDIT_BACK
+  ) {
     await ctx.answerCbQuery();
-    resetMagicClipsFlow(session);
-    await ctx.reply(magicClipsUx.cancelled);
+    await handleEditSelection(ctx, session, state, data);
     return;
   }
 
-  if (data.startsWith(magicCallbacks.COUNT_PREFIX)) {
+  if (data.startsWith(magicCallbacks.LENGTH_PREFIX)) {
     await ctx.answerCbQuery();
-    if (!state.active || state.step !== FLOW_STEPS.ASK_CLIP_COUNT) {
+    if (state.step !== FLOW_STEPS.ASK_OUTPUT_LENGTH && state.step !== FLOW_STEPS.ASK_OUTPUT_LENGTH_CUSTOM) {
       await ctx.reply(magicClipsUx.noActiveFlow);
       return;
     }
 
-    const value = data.slice(magicCallbacks.COUNT_PREFIX.length);
+    const value = data.slice(magicCallbacks.LENGTH_PREFIX.length);
     if (value === 'custom') {
-      await ctx.reply(magicClipsUx.askClipCountCustom);
+      moveToStep(session, FLOW_STEPS.ASK_OUTPUT_LENGTH_CUSTOM);
+      await ctx.reply(magicClipsUx.askOutputLengthCustom, cancelKeyboard());
       return;
     }
 
-    await handleClipCountInput(ctx, state, value);
+    await handleLengthInput(ctx, state, value);
     return;
   }
 
-  if (data.startsWith(magicCallbacks.DURATION_PREFIX)) {
+  if (data.startsWith(magicCallbacks.MODE_PREFIX)) {
     await ctx.answerCbQuery();
-    if (!state.active || state.step !== FLOW_STEPS.ASK_MAX_DURATION) {
+    if (state.step !== FLOW_STEPS.ASK_OUTPUT_MODE) {
       await ctx.reply(magicClipsUx.noActiveFlow);
       return;
     }
 
-    const value = data.slice(magicCallbacks.DURATION_PREFIX.length);
-    if (value === 'custom') {
-      await ctx.reply(magicClipsUx.askMaxDurationCustom);
-      return;
-    }
-
-    await handleMaxDurationInput(ctx, state, value);
+    const value = data.slice(magicCallbacks.MODE_PREFIX.length);
+    await handleModeInput(ctx, state, value);
   }
 }
 
@@ -178,30 +258,25 @@ async function handleMagicText(ctx) {
     return;
   }
 
-  if (state.step === FLOW_STEPS.ASK_CLIP_COUNT) {
-    await handleClipCountInput(ctx, state, text);
-    return;
-  }
-
-  if (state.step === FLOW_STEPS.ASK_MAX_DURATION) {
-    await handleMaxDurationInput(ctx, state, text);
+  if (state.step === FLOW_STEPS.ASK_OUTPUT_LENGTH_CUSTOM) {
+    await handleLengthInput(ctx, state, text);
     return;
   }
 
   if (state.step === FLOW_STEPS.CONFIRM) {
     const lowered = text.toLowerCase();
     if (lowered === 'start') {
-      await runMagicClipsJob(ctx, state, ctx.state.deps);
-      resetMagicClipsFlow(session);
+      if (canStart(state)) {
+        await runMagicClipsJob(ctx, state, ctx.state.deps);
+        resetMagicClipsFlow(session);
+      } else {
+        await ctx.reply(magicClipsUx.completePreviousSteps);
+      }
       return;
     }
 
     if (lowered === 'edit') {
-      moveToStep(session, FLOW_STEPS.ASK_URL);
-      state.url = null;
-      state.clipCount = null;
-      state.maxDurationSec = null;
-      await ctx.reply(magicClipsUx.editPrompt);
+      await sendEditMenu(ctx, session);
       return;
     }
 
@@ -211,7 +286,7 @@ async function handleMagicText(ctx) {
       return;
     }
 
-    await ctx.reply(magicClipsUx.confirmHint, confirmKeyboard());
+    await sendConfirmation(ctx, state);
   }
 }
 
@@ -220,10 +295,10 @@ export function register(bot, deps) {
     const session = ensureSession(ctx);
     beginMagicClipsFlow(session);
     await ctx.answerCbQuery();
-    await ctx.reply(magicClipsUx.askUrl);
+    await sendAskUrl(ctx);
   });
 
-  bot.action(/^magic:/, async (ctx) => {
+  bot.action(/^mc:/, async (ctx) => {
     await handleMagicAction(ctx, deps);
   });
 

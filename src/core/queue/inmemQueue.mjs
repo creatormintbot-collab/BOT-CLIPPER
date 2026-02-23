@@ -9,11 +9,13 @@ export class InMemoryQueue {
   async add(job) {
     this.jobs.push(job);
     this.logger.debug('Job queued in memory.', { jobId: job.id, type: job.type });
+    this.#kick();
     return job;
   }
 
   process(handler) {
     this.handler = handler;
+    this.#kick();
   }
 
   async runNext() {
@@ -29,10 +31,24 @@ export class InMemoryQueue {
     this.running = true;
 
     try {
-      return await this.handler(job);
+      const result = await this.handler(job);
+      return result;
     } finally {
       this.running = false;
+      this.#kick();
     }
+  }
+
+  #kick() {
+    if (this.running || typeof this.handler !== 'function' || this.jobs.length === 0) {
+      return;
+    }
+
+    setImmediate(async () => {
+      while (!this.running && this.jobs.length > 0) {
+        await this.runNext();
+      }
+    });
   }
 }
 

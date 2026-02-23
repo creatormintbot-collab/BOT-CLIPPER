@@ -1,54 +1,76 @@
 # UX Copy (English)
 
-## Start menu title
+## Start menu text
 
 - `Create a new project`
+- `Choose a tool:`
 
 ## Start menu buttons
 
-- `Generate Captions (Coming soon)`
-- `AI Auto Edit (Coming soon)`
-- `Magic Clips (YouTube → Clips)`
-- `AI Avatar Studio (Coming soon)`
-- `Combine Videos (Coming soon)`
-- `Help`
+- `Captions (Soon)` -> `menu:captions`
+- `Auto Edit (Soon)` -> `menu:auto_edit`
+- `Magic Clips` -> `menu:magic_clips`
+- `Avatar (Soon)` -> `menu:avatar`
+- `Combine (Soon)` -> `menu:combine`
+- `Help` -> `menu:help`
 
-## Global messages
+## Magic Clips wizard
 
-- `Use the menu to choose a tool. Only Magic Clips (YouTube → Clips) is functional right now.`
-- `You're doing that too fast. Please wait a moment.`
-- `Magic Clips flow cancelled.`
-- `There is no active flow to cancel.`
+### 1) Ask URL
 
-## Magic Clips flow
+- Text: `Send a YouTube URL.`
+- Button: `Cancel` -> `mc:cancel`
 
-- `Send a YouTube URL.`
-- `Please send a valid YouTube URL (youtube.com or youtu.be).`
-- `How many clips?`
-- `Send the number of clips (1-20).`
-- `Clip count must be a number between 1 and 20.`
-- `Max duration per clip?`
-- `Send max duration in seconds (5-300).`
-- `Max duration must be a number between 5 and 300 seconds.`
-- `Confirm your Magic Clips request:`
-- `Press Start, Edit, or Cancel.`
-- `Let's edit your request. Send a YouTube URL.`
-- `Job completed (stub). Clip links will appear here once the clipper is implemented.`
-- `Job queued. Processing will start when a worker is available.`
-- `No active Magic Clips flow. Choose Magic Clips from the start menu.`
-- `Starting...`
-- `Complete previous steps first.`
-- `Unable to start job in this chat context.`
+### 2) Ask output length
 
-## Magic Clips buttons
+- Text: `Choose output length (final merged video):`
+- Buttons:
+  - `60s` -> `mc:len:60`
+  - `75s (Rec)` -> `mc:len:75`
+  - `90s` -> `mc:len:90`
+  - `Custom` -> `mc:len:custom`
+  - `Back` -> `mc:back`
+  - `Cancel` -> `mc:cancel`
+- Custom text: `Send target length in seconds (60–90).`
 
-- Clip count quick picks: `3`, `5`, `8`, `Custom`
-- Max duration quick picks: `15s`, `30s`, `45s`, `60s`, `Custom`
-- Confirm actions: `Start`, `Edit`, `Cancel`
+### 3) Ask output mode
 
-## Coming soon module responses
+- Text: `Choose output mode:`
+- Buttons:
+  - `Single (Best)` -> `mc:mode:single`
+  - `3 Variants` -> `mc:mode:variants`
+  - `Back` -> `mc:back`
+  - `Cancel` -> `mc:cancel`
 
-- `Generate Captions is coming soon.`
-- `AI Auto Edit is coming soon.`
-- `AI Avatar Studio is coming soon.`
-- `Combine Videos is coming soon.`
+### 4) Confirm
+
+- Text includes:
+  - URL (normalized)
+  - `Output: Single merged highlights video`
+  - target length
+  - mode (`Single (Best)` or `3 Variants (Hot Take / Checklist / Story)`)
+  - `Highlights: Auto (3–5 best moments)`
+  - `Insert prompts: Auto (2–4 suggestions)`
+- Buttons:
+  - `Start` -> `mc:start`
+  - `Edit` -> `mc:edit`
+  - `Cancel` -> `mc:cancel`
+
+### Edit menu
+
+- Text: `What do you want to edit?`
+- Buttons:
+  - `Change URL` -> `mc:edit:url`
+  - `Change length` -> `mc:edit:len`
+  - `Change mode` -> `mc:edit:mode`
+  - `Back` -> `mc:edit:back`
+  - `Cancel` -> `mc:cancel`
+
+## Progress updates
+
+- `Downloading audio...`
+- `Transcribing...`
+- `Selecting highlights...`
+- `Cutting...`
+- `Merging...`
+- `Uploading to Telegram...`

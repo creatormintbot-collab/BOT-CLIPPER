@@ -16,6 +16,15 @@ function withDefault(name, defaultValue) {
   return value && value.trim() ? value.trim() : defaultValue;
 }
 
+function parsePositiveInteger(name, defaultValue) {
+  const raw = withDefault(name, String(defaultValue));
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a positive integer.`);
+  }
+  return parsed;
+}
+
 function parseAdminIds(value) {
   if (!value || !value.trim()) {
     return [];
@@ -52,5 +61,10 @@ export const env = Object.freeze({
   ADMIN_USER_IDS: parseAdminIds(process.env.ADMIN_USER_IDS),
   STORE_DRIVER,
   QUEUE_DRIVER,
-  DATA_DIR: withDefault('DATA_DIR', './data')
+  DATA_DIR: withDefault('DATA_DIR', './data'),
+  PYTHON_BIN: withDefault('PYTHON_BIN', 'python3'),
+  WHISPER_MODEL: withDefault('WHISPER_MODEL', 'small'),
+  WHISPER_LANGUAGE: withDefault('WHISPER_LANGUAGE', 'id'),
+  OUTPUT_WIDTH: parsePositiveInteger('OUTPUT_WIDTH', 720),
+  OUTPUT_HEIGHT: parsePositiveInteger('OUTPUT_HEIGHT', 1280)
 });

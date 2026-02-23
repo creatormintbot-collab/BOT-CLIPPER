@@ -15,12 +15,12 @@ async function bootstrap() {
   const queue = await createQueue({ env, logger });
   const bot = createBot({ env, logger });
 
-  const deps = { env, logger, storage, queue };
+  const deps = { env, logger, storage, queue, telegram: bot.telegram };
 
   bot.use(createSessionMiddleware({ storage, logger }));
   bot.use(createRateLimitMiddleware({ logger }));
 
-  registerWorkers({ queue, storage, logger });
+  registerWorkers({ queue, storage, logger, env, telegram: bot.telegram });
   registerRouter(bot, deps);
 
   await bot.launch();
