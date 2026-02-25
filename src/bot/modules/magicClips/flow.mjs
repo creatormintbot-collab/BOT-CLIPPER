@@ -8,7 +8,9 @@ function defaultState() {
     urlOriginal: null,
     urlNormalized: null,
     targetLengthSec: null,
-    outputMode: null
+    outputMode: null,
+    variantDurationMode: null,
+    variantDurations: null
   };
 }
 
@@ -28,6 +30,8 @@ export function beginMagicClipsFlow(session) {
   state.urlNormalized = null;
   state.targetLengthSec = null;
   state.outputMode = null;
+  state.variantDurationMode = null;
+  state.variantDurations = null;
   return state;
 }
 

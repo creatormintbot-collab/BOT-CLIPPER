@@ -4,6 +4,20 @@ import { nowIso } from '../../../core/utils/time.mjs';
 
 export function buildMagicClipsJob({ userId, chatId, state }) {
   const createdAt = nowIso();
+  const payload = {
+    urlOriginal: state.urlOriginal,
+    urlNormalized: state.urlNormalized,
+    targetLengthSec: state.targetLengthSec,
+    outputMode: state.outputMode,
+    variantDurationMode: state.variantDurationMode || null,
+    variantDurations: state.variantDurations || null,
+    createdAt,
+    status: 'queued'
+  };
+
+  if (state.outputMode === 'variants') {
+    payload.phase = 'analyze';
+  }
 
   return {
     id: randomUUID(),
@@ -12,14 +26,7 @@ export function buildMagicClipsJob({ userId, chatId, state }) {
     chatId,
     status: 'queued',
     createdAt,
-    payload: {
-      urlOriginal: state.urlOriginal,
-      urlNormalized: state.urlNormalized,
-      targetLengthSec: state.targetLengthSec,
-      outputMode: state.outputMode,
-      createdAt,
-      status: 'queued'
-    }
+    payload
   };
 }
 

@@ -30,6 +30,15 @@ function parsePositiveInteger(name, defaultValue) {
   return parsed;
 }
 
+function parseBoundedNumber(name, defaultValue, min, max) {
+  const raw = withDefault(name, String(defaultValue));
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} must be a number between ${min} and ${max}.`);
+  }
+  return parsed;
+}
+
 function parseAdminIds(value) {
   if (!value || !value.trim()) {
     return [];
@@ -72,6 +81,14 @@ export const env = Object.freeze({
   WHISPER_LANGUAGE: withDefault('WHISPER_LANGUAGE', 'id'),
   OUTPUT_WIDTH: parsePositiveInteger('OUTPUT_WIDTH', 720),
   OUTPUT_HEIGHT: parsePositiveInteger('OUTPUT_HEIGHT', 1280),
+  VERTICAL_ANALYSIS_FPS: parseBoundedNumber('VERTICAL_ANALYSIS_FPS', 2, 1, 6),
+  VERTICAL_SPLIT_SCORE_ENTER: parseBoundedNumber('VERTICAL_SPLIT_SCORE_ENTER', 0.58, 0.1, 0.95),
+  VERTICAL_SPLIT_SCORE_EXIT: parseBoundedNumber('VERTICAL_SPLIT_SCORE_EXIT', 0.48, 0.05, 0.9),
+  VERTICAL_ENTER_C_STABLE_SEC: parseBoundedNumber('VERTICAL_ENTER_C_STABLE_SEC', 1.0, 0.5, 3),
+  VERTICAL_EXIT_TO_B_STABLE_SEC: parseBoundedNumber('VERTICAL_EXIT_TO_B_STABLE_SEC', 1.0, 0.5, 3),
+  VERTICAL_C_MIN_HOLD_SEC: parseBoundedNumber('VERTICAL_C_MIN_HOLD_SEC', 3.0, 1, 8),
+  VERTICAL_ANALYSIS_WIDTH: parsePositiveInteger('VERTICAL_ANALYSIS_WIDTH', 96),
+  VERTICAL_ANALYSIS_HEIGHT: parsePositiveInteger('VERTICAL_ANALYSIS_HEIGHT', 54),
   YTDLP_COOKIES_PATH: optional('YTDLP_COOKIES_PATH'),
   YTDLP_JS_RUNTIME: optional('YTDLP_JS_RUNTIME')
 });
